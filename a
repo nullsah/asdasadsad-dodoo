@@ -7522,7 +7522,7 @@ VapeLogo.BackgroundTransparency = 1
 VapeLogo.BorderSizePixel = 0
 VapeLogo.Visible = false
 VapeLogo.BackgroundColor3 = Color3.new()
-VapeLogo.Image = 'https://github.com/nullsah/asdasadsad-dodoo/blob/main/h6tCM.jpg'
+VapeLogo.Image = "https://github.com/nullsah/asdasadsad-dodoo/blob/main/h6tCM.jpg"
 VapeLogo.Parent = textgui.Children
 
 local lastside = textgui.Children.AbsolutePosition.X > (gui.AbsoluteSize.X / 2)
