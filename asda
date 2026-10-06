@@ -1,1 +1,723 @@
+task.wait(3)
+local detect = getgenv().Detect 
+local fling = getgenv().Fling
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local PlaceId = game.PlaceId
+local JobId = game.JobId
+local bbbatusxxxddddd = game:service'VirtualUser'
 
+game:service'Players'.LocalPlayer.Idled:connect(function()
+    bbbatusxxxddddd:CaptureController()
+    bbbatusxxxddddd:ClickButton2(Vector2.new())
+end)
+
+local flingInProgress = false
+local ActiveAnimTrack = nil  
+
+local function notify(title, message)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = message,
+        Duration = 3,
+    })
+end
+
+notify("Main", "Started ")
+
+task.spawn(function()
+    while true do
+        task.wait(5)
+        if #game:GetService("Players"):GetPlayers() <= 1 then
+            notify("Server", "Only player in server, hopping...")
+            serverHop()
+            break
+        end
+    end
+end)
+
+local function playAnimation()
+    if ActiveAnimTrack and ActiveAnimTrack.IsPlaying then
+        ActiveAnimTrack:Stop()
+    end
+
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then
+        animator = Instance.new("Animator")
+        animator.Parent = humanoid
+    end
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://91133306449431"
+
+    local animTrack = animator:LoadAnimation(anim)
+    animTrack.Priority = Enum.AnimationPriority.Movement
+    animTrack:Play(0, 1, 0)
+
+    anim:Destroy()
+
+    task.defer(function()
+        if animTrack and animTrack.IsPlaying then
+            animTrack.TimePosition = 0.1275
+            animTrack:AdjustSpeed(0)
+        end
+    end)
+
+    ActiveAnimTrack = animTrack   
+    return true
+end
+
+local noclipEnabled = true
+
+local function enableNoclip(char)
+    if not char then return end
+
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+
+    noclipEnabled = true
+end
+
+local function disableNoclip(char)
+    if not char then return end
+
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = true
+        end
+    end
+
+    noclipEnabled = false
+end
+
+local Character = LocalPlayer.Character
+local RootPart = Character and Character:WaitForChild("HumanoidRootPart")
+
+local function onCharacterAdded(char)
+    task.wait(1)
+    enableNoclip(char)
+    task.spawn(playAnimation)
+    Character = char
+    RootPart = char:WaitForChild("HumanoidRootPart")
+    lastCoin = nil
+end
+
+if Character then
+    enableNoclip(Character)
+    task.spawn(playAnimation)
+end
+
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+local function getCoinContainer()
+    for _, obj in ipairs(workspace:GetChildren()) do
+        local container = obj:FindFirstChild("CoinContainer")
+        if container then return container end
+    end
+    return nil
+end
+
+local function tweenToCoin(coinPart)
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not coinPart or not coinPart.Parent then return end
+
+    local currentPos = hrp.Position
+    local targetPos = coinPart.Position
+    local distance = (targetPos - currentPos).Magnitude
+    local speed = 25
+    local duration = math.max(distance / speed, 0.04)
+    local targetCFrame = CFrame.new(targetPos)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {
+        CFrame = targetCFrame
+    })
+
+    tween:Play()
+
+    while tween.PlaybackState ~= Enum.PlaybackState.Completed do
+        task.wait()
+
+        if not coinPart.Parent then
+            tween:Cancel()
+            return
+        end
+    end
+end
+
+local function GetMurdererV1()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and (
+            v.Character:FindFirstChild("Knife") or
+            (v.Backpack and v.Backpack:FindFirstChild("Knife"))
+        ) then
+            return v.Character
+        end
+    end
+
+    return nil
+end
+
+local function GetSheriffV1()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and (
+            v.Character:FindFirstChild("Gun") or
+            (v.Backpack and v.Backpack:FindFirstChild("Gun"))
+        ) then
+            return v.Character
+        end
+    end
+
+    return nil
+end
+
+local function FlingTarget(TargetPlayer)
+    if flingInProgress then return end
+
+    flingInProgress = true
+
+    if ActiveAnimTrack and ActiveAnimTrack.IsPlaying then
+        ActiveAnimTrack:Stop()
+    end
+
+    if not TargetPlayer or not TargetPlayer.Character then
+        flingInProgress = false
+        return
+    end
+
+    local TCharacter = TargetPlayer.Character
+
+    if not TCharacter then
+        flingInProgress = false
+        return
+    end
+
+    local Character = LocalPlayer.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+
+    if not Character or not Humanoid or not RootPart then
+        flingInProgress = false
+        return
+    end
+
+    local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and THumanoid.RootPart
+    local THead = TCharacter:FindFirstChild("Head")
+    local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
+    local Handle = Accessory and Accessory:FindFirstChild("Handle")
+
+    if THumanoid and THumanoid.Sit then
+        notify("Fling", TargetPlayer.Name .. " is sitting, skipped")
+        flingInProgress = false
+        return
+    end
+
+    local oldCamSubject = workspace.CurrentCamera.CameraSubject
+    local oldFPDH = workspace.FallenPartsDestroyHeight
+
+    if THead then
+        workspace.CurrentCamera.CameraSubject = THead
+    elseif Handle then
+        workspace.CurrentCamera.CameraSubject = Handle
+    elseif THumanoid and TRootPart then
+        workspace.CurrentCamera.CameraSubject = THumanoid
+    end
+
+    disableNoclip(Character)
+
+    local oldPos = RootPart.CFrame
+
+    local BV = Instance.new("BodyVelocity")
+    BV.Parent = RootPart
+    BV.Velocity = Vector3.new(0, 0, 0)
+    BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+    local function FPos(BasePart, Pos, Ang)
+        if not RootPart or not RootPart.Parent then return end
+
+        RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+        Character:SetPrimaryPartCFrame(
+            CFrame.new(BasePart.Position) * Pos * Ang
+        )
+
+        RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+        RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+    end
+
+    local function SFBasePart(BasePart)
+        local TimeToWait = 2
+        local Time = tick()
+        local Angle = 0
+
+        repeat
+            if RootPart and THumanoid then
+                if BasePart.Velocity.Magnitude < 50 then
+                    Angle = Angle + 100
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, 1.5, 0) +
+                            THumanoid.MoveDirection *
+                            BasePart.Velocity.Magnitude / 1.25,
+                        CFrame.Angles(math.rad(Angle), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, -1.5, 0) +
+                            THumanoid.MoveDirection *
+                            BasePart.Velocity.Magnitude / 1.25,
+                        CFrame.Angles(math.rad(Angle), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, 1.5, 0) +
+                            THumanoid.MoveDirection *
+                            BasePart.Velocity.Magnitude / 1.25,
+                        CFrame.Angles(math.rad(Angle), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, -1.5, 0) +
+                            THumanoid.MoveDirection *
+                            BasePart.Velocity.Magnitude / 1.25,
+                        CFrame.Angles(math.rad(Angle), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection,
+                        CFrame.Angles(math.rad(Angle), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection,
+                        CFrame.Angles(math.rad(Angle), 0, 0)
+                    )
+
+                    task.wait()
+                else
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, 1.5, THumanoid.WalkSpeed),
+                        CFrame.Angles(math.rad(90), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, -1.5, -THumanoid.WalkSpeed),
+                        CFrame.Angles(0, 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, 1.5, THumanoid.WalkSpeed),
+                        CFrame.Angles(math.rad(90), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, -1.5, 0),
+                        CFrame.Angles(math.rad(90), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, -1.5, 0),
+                        CFrame.Angles(0, 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, -1.5, 0),
+                        CFrame.Angles(math.rad(90), 0, 0)
+                    )
+
+                    task.wait()
+
+                    FPos(
+                        BasePart,
+                        CFrame.new(0, -1.5, 0),
+                        CFrame.Angles(0, 0, 0)
+                    )
+
+                    task.wait()
+                end
+            end
+        until Time + TimeToWait < tick()
+    end
+
+    workspace.FallenPartsDestroyHeight = 0/0
+
+    if TRootPart then
+        SFBasePart(TRootPart)
+    elseif THead then
+        SFBasePart(THead)
+    elseif Handle then
+        SFBasePart(Handle)
+    else
+        notify("Fling", TargetPlayer.Name .. " has no valid parts")
+
+        BV:Destroy()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        workspace.CurrentCamera.CameraSubject = oldCamSubject or Humanoid
+        workspace.FallenPartsDestroyHeight = oldFPDH
+        enableNoclip(Character)
+        flingInProgress = false
+
+        return
+    end
+
+    BV:Destroy()
+    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+    workspace.CurrentCamera.CameraSubject = oldCamSubject or Humanoid
+    workspace.FallenPartsDestroyHeight = oldFPDH
+
+    if oldPos then
+        repeat
+            RootPart.CFrame = oldPos * CFrame.new(0, 0.5, 0)
+            Character:SetPrimaryPartCFrame(oldPos * CFrame.new(0, 0.5, 0))
+            Humanoid:ChangeState("GettingUp")
+
+            for _, part in pairs(Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.Velocity, part.RotVelocity = Vector3.new(), Vector3.new()
+                end
+            end
+
+            task.wait()
+        until (RootPart.Position - oldPos.p).Magnitude < 25
+    end
+
+    enableNoclip(Character)
+    task.spawn(playAnimation)
+    flingInProgress = false
+end
+
+local function flingWeaponHolders()
+    if flingInProgress then return end
+
+    local targets = {}
+
+    local murdererChar = GetMurdererV1()
+
+    if murdererChar then
+        local player = Players:GetPlayerFromCharacter(murdererChar)
+
+        if player then
+            table.insert(targets, player)
+        end
+    end
+
+    local sheriffChar = GetSheriffV1()
+
+    if sheriffChar and sheriffChar ~= murdererChar then
+        local player = Players:GetPlayerFromCharacter(sheriffChar)
+
+        if player then
+            table.insert(targets, player)
+        end
+    end
+
+    if #targets == 0 then return end
+
+    for _, target in ipairs(targets) do
+        FlingTarget(target)
+        task.wait(0.1)
+    end
+end
+
+local function teleportToLobby()
+    local character = LocalPlayer.Character
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    if not humanoid then return end
+
+    humanoid.Health = 0
+
+    local newChar = LocalPlayer.CharacterAdded:Wait()
+    newChar:WaitForChild("Humanoid")
+    local newRoot = newChar:WaitForChild("HumanoidRootPart")
+
+    Character = newChar
+    RootPart = newRoot
+
+    task.wait(0.3)
+
+    if fling then
+        task.spawn(flingWeaponHolders)
+    end
+end
+
+local function getLowPlayerServers(maxPlayersWanted)
+    local servers = {}
+    local cursor = ""
+
+    repeat
+        local url = string.format(
+            "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=true%s",
+            PlaceId,
+            cursor ~= "" and "&cursor=" .. cursor or ""
+        )
+
+        local success, response = pcall(function()
+            return game:HttpGet(url)
+        end)
+
+        if not success then break end
+
+        local body = HttpService:JSONDecode(response)
+
+        for _, server in ipairs(body.data) do
+            if server.id ~= JobId
+                and server.playing
+                and server.maxPlayers
+                and server.playing <= maxPlayersWanted
+                and server.playing < server.maxPlayers then
+
+                table.insert(servers, server.id)
+            end
+        end
+
+        cursor = body.nextPageCursor or ""
+
+        if #servers > 0 then break end
+
+        task.wait()
+    until cursor == ""
+
+    return servers
+end
+
+local function serverHop()
+    notify("Server Hop", "Searching for servers with 10 players...")
+
+    for attempt = 1, 10 do
+        local servers = getLowPlayerServers(10)
+
+        if #servers > 0 then
+            if queue_on_teleport then
+                local detect = getgenv().Detect
+                local fling = getgenv().Fling
+
+                queue_on_teleport(string.format([[
+                    getgenv().Detect = %s
+                    getgenv().Fling = %s
+
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/nullsah/asdasadsad-dodoo/refs/heads/main/asda"))()
+                ]], tostring(detect), tostring(fling)))
+            end
+
+            notify("Server Hop", "Found " .. #servers .. " server(s)!")
+
+            TeleportService:TeleportToPlaceInstance(
+                PlaceId,
+                servers[math.random(#servers)],
+                LocalPlayer
+            )
+
+            return
+        end
+
+        task.wait(0.5)
+    end
+end
+
+local lastPositions = {}
+
+local function checkCheaters()
+    local coinContainer = getCoinContainer()
+
+    if not coinContainer then return false end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+
+            if character then
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+
+                if hrp then
+                    local currentPos = hrp.Position
+                    local lastPos = lastPositions[player.UserId]
+
+                    if lastPos then
+                        local delta = (currentPos - lastPos).Magnitude
+
+                        if delta > 60 then
+                            for _, item in ipairs(coinContainer:GetChildren()) do
+                                local targetPart =
+                                    item:IsA("BasePart") and item
+                                    or (
+                                        item:IsA("Model") and
+                                        (
+                                            item.PrimaryPart or
+                                            item:FindFirstChildWhichIsA("BasePart")
+                                        )
+                                    )
+
+                                if targetPart and
+                                    (currentPos - targetPart.Position).Magnitude < 5 then
+
+                                    lastPositions[player.UserId] = currentPos
+                                    return true
+                                end
+                            end
+                        end
+                    end
+
+                    lastPositions[player.UserId] = currentPos
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function collectLoop()
+    local lastCoin = nil
+
+    while true do
+        if detect then
+            if checkCheaters() then
+                notify("AC", "Exploiter detected, server hopping...")
+                serverHop()
+                break
+            end
+        end
+
+        if not LocalPlayer:GetAttribute("Alive") then
+            task.wait(0.05)
+            continue
+        end
+
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+
+        if not playerGui then
+            task.wait(0.05)
+            continue
+        end
+
+        local coinGui = LocalPlayer.PlayerGui.MainGUI.Game.CoinBags.Container.Coin.Full
+
+        if coinGui and coinGui.Visible then
+            teleportToLobby()
+
+            repeat
+                task.wait(0.05)
+
+                local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+
+                if not playerGui then break end
+
+                local full = playerGui.MainGUI.Game.CoinBags.Container.Coin.Full
+            until not full.Visible
+        else
+            local container = getCoinContainer()
+
+            if container then
+                local coins = {}
+
+                for _, item in ipairs(container:GetChildren()) do
+                    local targetPart
+
+                    if item:IsA("BasePart") then
+                        targetPart = item
+                    elseif item:IsA("Model") then
+                        targetPart = item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart")
+                    end
+
+                    if targetPart and
+                        targetPart.Parent and
+                        targetPart:FindFirstChildOfClass("TouchTransmitter") then
+
+                        table.insert(coins, targetPart)
+                    end
+                end
+
+                if #coins > 0 then
+                    local character = LocalPlayer.Character
+                    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+
+                    if hrp then
+                        local currentPos = hrp.Position
+                        local closestCoin = nil
+                        local closestDist = math.huge
+
+                        for _, coin in ipairs(coins) do
+                            if coin ~= lastCoin then
+                                local dist = (coin.Position - currentPos).Magnitude
+
+                                if dist < closestDist then
+                                    closestDist = dist
+                                    closestCoin = coin
+                                end
+                            end
+                        end
+
+                        if not closestCoin and lastCoin then
+                            for _, coin in ipairs(coins) do
+                                local dist = (coin.Position - currentPos).Magnitude
+
+                                if dist < closestDist then
+                                    closestDist = dist
+                                    closestCoin = coin
+                                end
+                            end
+                        end
+
+                        if closestCoin then
+                            tweenToCoin(closestCoin)
+                            lastCoin = closestCoin
+                            task.wait()
+                        end
+                    end
+                end
+            end
+        end
+
+        task.wait(0.05)
+    end
+end
+
+task.spawn(collectLoop)
